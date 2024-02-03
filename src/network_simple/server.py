@@ -10,13 +10,14 @@ from __future__ import annotations
 import socketserver
 import socket
 import logging
-from socketserver import BaseRequestHandler
-from typing import Container, List
+from socketserver import StreamRequestHandler, DatagramRequestHandler
+from typing import Union, List
+from collections import deque
 import threading
 import time
 import bufsock
 
-from buffered.buffer import Buffer, PackagedBuffer, JSONPackager
+from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
@@ -25,7 +26,7 @@ MAXIMUM_PACKET_SIZE = 4096
 BUFFER_LENGTH = 8192
 
 
-def is_empty(obj):
+def is_empty(obj) -> bool:
     if isinstance(obj, str):
         return not bool(obj.strip())  # Consider empty strings as true
     elif isinstance(obj, list):
@@ -36,7 +37,7 @@ def is_empty(obj):
         return not bool(obj)  # Other non-list, non-string objects are considered true
 
 
-def string_to_binary(string):
+def string_to_binary(string) -> bytes:
     """Convert a text string (or binary string type) to a binary string type."""
     if isinstance(string, str):
         return string.encode("utf-8")
@@ -44,7 +45,7 @@ def string_to_binary(string):
 
 
 class SimpleHandler:
-    def handle(self):
+    def handle(self) -> None:
         try:
             data = self.rfile.readline(MAXIMUM_PACKET_SIZE)
             self.server._input_buffer.append(data)
@@ -67,19 +68,20 @@ class SimpleHandlerTCP(SimpleHandler, socketserver.StreamRequestHandler): ...
 
 class SimpleServer:
 
-    _timeout = 5  # seconds
+    _timeout = 5  # seconds (not implemented yet)
     _start_time = time.monotonic()
 
     def __init__(
         self,
-        output_buffer: Container,
-        buffer_length=BUFFER_LENGTH,
-        autostart=False,
+        output_buffer: Union[List, deque],
+        buffer_length: int = BUFFER_LENGTH,
+        autostart: bool = False,
         host: str = "localhost",
         port: int = 0,
-        update_interval=0.5,
-        packager=None,
-    ):
+        update_interval: float = 0.5,
+        packager: Packager = None,
+    ) -> None:
+
         self.host = host
         self.port = port
         self.update_interval = update_interval
@@ -113,13 +115,13 @@ class SimpleServer:
     def peek_buffer(self) -> List[bytes]:
         return self._input_buffer.get_copy()
 
-    def handle_connections(self):
+    def handle_connections(self) -> None:
         logger.info(
             f"Starting server on {self.server_address[0]} at port {self.server_address[1]}"
         )
         self.serve_forever(poll_interval=self.update_interval)
 
-    def unpack_input_buffer(self):
+    def unpack_input_buffer(self) -> None:
         while True:
             while len(self._input_buffer) > 0:
                 try:
@@ -129,11 +131,11 @@ class SimpleServer:
                     self._output_buffer.append(self._input_buffer.pop())
             time.sleep(self.update_interval)
 
-    def start(self):
+    def start(self) -> None:
         self.handler_thread.start()
         self.unpacking_thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         logger.info(
             f"Stopping server on {self.server_address[0]} at port {self.server_address[1]}"
         )
@@ -165,12 +167,12 @@ class SimpleServer:
 class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
     def __init__(
         self,
-        output_buffer=None,
+        output_buffer: Union[List, deque] = None,
         host: str = "localhost",
         port: int = 0,
-        RequestHandlerClass: BaseRequestHandler = SimpleHandlerTCP,
-        autostart=True,
-        buffer_length=BUFFER_LENGTH,
+        RequestHandlerClass: StreamRequestHandler = SimpleHandlerTCP,
+        autostart: bool = True,
+        buffer_length: int = BUFFER_LENGTH,
         **kwargs,
     ) -> None:
         socketserver.TCPServer.__init__(
@@ -199,12 +201,12 @@ class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
 class SimpleServerUDP(SimpleServer, socketserver.UDPServer):
     def __init__(
         self,
-        output_buffer=None,
+        output_buffer: Union[List, deque] = None,
         host: str = "localhost",
         port: int = 0,
-        RequestHandlerClass: BaseRequestHandler = SimpleHandlerUDP,
-        autostart=True,
-        buffer_length=BUFFER_LENGTH,
+        RequestHandlerClass: DatagramRequestHandler = SimpleHandlerUDP,
+        autostart: bool = True,
+        buffer_length: int = BUFFER_LENGTH,
         **kwargs,
     ) -> None:
         socketserver.UDPServer.__init__(
@@ -229,13 +231,12 @@ class SimpleServerUDP(SimpleServer, socketserver.UDPServer):
         return (data, self.socket), addr
 
 
-def simple_tcp_server():
+def simple_tcp_server() -> None:
     buffer = []
     server = SimpleServerTCP(
         output_buffer=buffer,
         host="localhost",
         port=9000,
-        RequestHandlerClass=SimpleHandlerTCP,
         autostart=True,
     )
     print(server)
@@ -245,13 +246,12 @@ def simple_tcp_server():
         time.sleep(1)
 
 
-def simple_udp_server():
+def simple_udp_server() -> None:
     buffer = Buffer()
     server = SimpleServerUDP(
         output_buffer=buffer,
         host="localhost",
         port=9000,
-        RequestHandlerClass=SimpleHandlerUDP,
         autostart=True,
     )
     print(server)

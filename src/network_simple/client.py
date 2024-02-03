@@ -8,8 +8,7 @@
 
 from __future__ import annotations
 import socket
-from datetime import datetime, timezone
-from typing import Union
+from typing import Any
 import socket
 import time
 import threading
@@ -25,7 +24,13 @@ MAXIMUM_PACKET_SIZE = 4096
 
 
 class SimpleClient(ABC):
-    def __init__(self, host="localhost", port=0, autostart=False, update_interval=1):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 0,
+        autostart: bool = False,
+        update_interval: float = 1,
+    ) -> None:
         self.host = host
         self.port = port
         self._buffer = PackagedBuffer(packager=JSONPackager())
@@ -35,26 +40,26 @@ class SimpleClient(ABC):
             self.start()
 
     @abstractmethod
-    def send(self): ...
+    def send(self) -> None: ...
 
-    def add_to_queue(self, data):
+    def add_to_queue(self, data: Any) -> None:
         self._buffer.add(data)
 
-    def run_client(self):
+    def run_client(self) -> None:
         while True:
             self.send()
             time.sleep(self.update_interval)
 
-    def start(self):
+    def start(self) -> SimpleClient:
         self.run_client_thread.start()
         logger.debug("Started client thread")
         return self
 
-    def stop(self):
+    def stop(self) -> None:
         self.run_client_thread.join()
         logger.debug("Stopped client thread")
 
-    def run_until_buffer_empty(self):
+    def run_until_buffer_empty(self) -> None:
         while self._buffer.not_empty():
             self.send()
             logger.info("Waiting for buffer to empty")
@@ -62,7 +67,7 @@ class SimpleClient(ABC):
         else:
             logger.info("Buffer empty")
 
-    def __enter__(self):
+    def __enter__(self) -> SimpleClient:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -76,7 +81,7 @@ class SimpleClient(ABC):
 
 
 class SimpleClientTCP(SimpleClient):
-    def send(self):
+    def send(self) -> None:
         while self._buffer.not_empty():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
@@ -86,7 +91,7 @@ class SimpleClientTCP(SimpleClient):
 
 
 class SimpleClientUDP(SimpleClient):
-    def send(self):
+    def send(self) -> None:
         while self._buffer.not_empty():
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 packet = self._buffer.pack_next()
