@@ -1,5 +1,5 @@
-# project_name
-### project_summary
+# network-simple
+### A simple way to network apps, agents and processes
 
 project description
 
