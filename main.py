@@ -21,6 +21,8 @@ logging.basicConfig(level=logging.DEBUG)
 from network_simple.client import SimpleClientTCP
 from network_simple.server import SimpleServerTCP
 
+# Example server-client for networking with TCP protocol
+
 
 def client_tcp():
 
@@ -47,9 +49,11 @@ def server_tcp():
     )
     print(server)
     while True:
-        print(f"{len(buffer)=}")
+        print(f"TCP_buffer_len = {len(buffer)}")
         time.sleep(1)
 
+
+# Example server-client for networking with UDP protocol
 
 from network_simple.client import SimpleClientUDP
 from network_simple.server import SimpleServerUDP
@@ -80,8 +84,11 @@ def server_udp():
     )
     print(server)
     while True:
-        print(f"{len(buffer)=}")
+        print(f"UDP_buffer_len = {len(buffer)}")
         time.sleep(1)
+
+
+# Run server and client in separate threads
 
 
 def run_server_client(server, client):
@@ -103,7 +110,7 @@ def run_server_client(server, client):
 if __name__ == "__main__":
 
     # UDP client and server
-    # run_server_client(server_udp, client_udp)
+    run_server_client(server_udp, client_udp)
 
     # TCP client and server
     run_server_client(server_tcp, client_tcp)
