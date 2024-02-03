@@ -19,7 +19,7 @@ import bufsock
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager
 
 logger = logging.getLogger(__name__)
-server_logbook = logging.getLogger("server_connections")
+server_logbook = logging.getLogger("server_conn")
 
 MAXIMUM_PACKET_SIZE = 4096
 BUFFER_LENGTH = 8192
@@ -102,7 +102,7 @@ class SimpleServer:
             unpacking_thread.start()
 
             # handler_thread.join()
-            # datafeed_thread.join()
+            # unpacking_thread.join()
 
         self.handler_thread = handler_thread
         self.unpacking_thread = unpacking_thread
@@ -189,7 +189,9 @@ class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
     def get_request(self) -> tuple[socket.socket, str]:
         conn, addr = super().get_request()
         logger.info("Connection from %s:%s", *addr)
-        server_logbook.info("Connected to %s:%s", *addr)
+        server_logbook.info(
+            f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
+        )
         self._socket_buffer = bufsock.bufsock(conn)
         return conn, addr
 
@@ -221,7 +223,9 @@ class SimpleServerUDP(SimpleServer, socketserver.UDPServer):
     def get_request(self) -> tuple[socket.socket, str]:
         (data, self.socket), addr = super().get_request()
         logger.info("Connection from %s:%s", *addr)
-        server_logbook.info("Connected to %s:%s", *addr)
+        server_logbook.info(
+            f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
+        )
         return (data, self.socket), addr
 
 

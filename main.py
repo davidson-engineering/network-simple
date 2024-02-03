@@ -14,7 +14,6 @@ import threading
 import logging
 import random
 import time
-from collections import deque
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -39,7 +38,7 @@ def client_tcp():
 
 
 def server_tcp():
-    buffer = deque()
+    buffer = []
     server = SimpleServerTCP(
         output_buffer=buffer,
         host="localhost",
@@ -49,14 +48,11 @@ def server_tcp():
     print(server)
     while True:
         print(f"{len(buffer)=}")
-        print(f"{server.request_queue_size=}")
         time.sleep(1)
 
 
 from network_simple.client import SimpleClientUDP
 from network_simple.server import SimpleServerUDP
-
-from buffered.buffer import PackagedBuffer
 
 
 def client_udp():
@@ -75,7 +71,7 @@ def client_udp():
 
 
 def server_udp():
-    buffer = PackagedBuffer()
+    buffer = []
     server = SimpleServerUDP(
         output_buffer=buffer,
         host="localhost",
@@ -84,7 +80,7 @@ def server_udp():
     )
     print(server)
     while True:
-        print(len(buffer))
+        print(f"{len(buffer)=}")
         time.sleep(1)
 
 
@@ -97,8 +93,8 @@ def run_server_client(server, client):
     client_thread = threading.Thread(target=client)
     client_thread.start()
 
-    # server_thread.join()
-    # client_thread.join()
+    server_thread.join()
+    client_thread.join()
 
     while True:
         time.sleep(1)
@@ -107,7 +103,7 @@ def run_server_client(server, client):
 if __name__ == "__main__":
 
     # UDP client and server
-    run_server_client(server_udp, client_udp)
+    # run_server_client(server_udp, client_udp)
 
     # TCP client and server
-    # run_server_client(server_tcp, client_tcp)
+    run_server_client(server_tcp, client_tcp)
