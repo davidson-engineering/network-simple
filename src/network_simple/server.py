@@ -103,9 +103,6 @@ class SimpleServer:
             handler_thread.start()
             unpacking_thread.start()
 
-            # handler_thread.join()
-            # unpacking_thread.join()
-
         self.handler_thread = handler_thread
         self.unpacking_thread = unpacking_thread
 
