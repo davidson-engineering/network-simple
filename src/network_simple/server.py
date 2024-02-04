@@ -15,8 +15,6 @@ from typing import Union, List
 from collections import deque
 import threading
 import time
-
-# import bufsock
 import io
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
