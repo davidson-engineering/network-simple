@@ -14,13 +14,24 @@ import time
 import threading
 import logging
 from abc import ABC, abstractmethod
+import io
 
 from buffered.buffer import PackagedBuffer, JSONPackager
 
 logger = logging.getLogger(__name__)
 
 
-MAXIMUM_PACKET_SIZE = 4096
+MAXIMUM_PACKET_SIZE = 4_096
+BUFFER_LENGTH = 16_384
+
+
+def convert_bytes_to_human_readable(num: float) -> str:
+    """Convert bytes to a human-readable format."""
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
+        if num < 1024.0:
+            return f"{num:.2f} {unit}"
+        num /= 1024.0
+    return f"{num:.2f} {unit}"
 
 
 class SimpleClient(ABC):
@@ -33,7 +44,8 @@ class SimpleClient(ABC):
     ) -> None:
         self.host = host
         self.port = port
-        self._buffer = PackagedBuffer(packager=JSONPackager())
+        self.encoding = "utf-8"
+        self._buffer = PackagedBuffer(maxlen=BUFFER_LENGTH, packager=JSONPackager())
         self.update_interval = update_interval
         self.run_client_thread = threading.Thread(target=self.run_client, daemon=True)
         if autostart:
@@ -41,6 +53,9 @@ class SimpleClient(ABC):
 
     @abstractmethod
     def send(self) -> None: ...
+
+    def finish(self) -> None:
+        pass
 
     def add_to_queue(self, data: Any) -> None:
         self._buffer.add(data)
@@ -62,10 +77,15 @@ class SimpleClient(ABC):
     def run_until_buffer_empty(self) -> None:
         while self._buffer.not_empty():
             self.send()
+            self.finish()
             logger.info("Waiting for buffer to empty")
             time.sleep(self.update_interval)
         else:
             logger.info("Buffer empty")
+
+    def finish(self) -> None:
+        bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_sent)
+        logger.info(f"Sent {bytes_recvd_str} to {self.host}")
 
     def __enter__(self) -> SimpleClient:
         return self
@@ -82,21 +102,32 @@ class SimpleClient(ABC):
 
 class SimpleClientTCP(SimpleClient):
     def send(self) -> None:
-        while self._buffer.not_empty():
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((self.host, self.port))
-                packet = self._buffer.pack_next()
-                logger.debug(f"Sending packet: {packet}")
-                s.send(packet)
+        self.bytes_sent = 0
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((self.host, self.port))
+            try:
+                with io.TextIOWrapper(
+                    s.makefile("rwb"), encoding=self.encoding, newline="\n"
+                ) as stream:
+                    while self._buffer.not_empty():
+                        packet = self._buffer.next_packed(terminator="\n")
+                        self.bytes_sent += len(packet.strip())
+                        logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
+                        stream.write(packet)
+                        stream.flush()
+            except Exception as e:
+                logger.error(f"Error in client send: {e}")
 
 
 class SimpleClientUDP(SimpleClient):
     def send(self) -> None:
-        while self._buffer.not_empty():
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                packet = self._buffer.pack_next()
-                logger.debug(f"Sending packet: {packet}")
-                s.sendto(packet, (self.host, self.port))
+        self.bytes_sent = 0
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            while self._buffer.not_empty():
+                packet = self._buffer.next_packed(terminator="\n")
+                self.bytes_sent += len(packet.strip())
+                logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
+                s.sendto(packet.encode(self.encoding), (self.host, self.port))
 
 
 def TCP_client():

@@ -16,7 +16,7 @@ import random
 import time
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 from network_simple.client import SimpleClientTCP
 from network_simple.server import SimpleServerTCP
@@ -31,10 +31,12 @@ def client_tcp():
         "port": 9000,
     }
     client = SimpleClientTCP(**client_config)
-    random_metrics = [("cpu_usage", random.random(), time.time()) for _ in range(4095)]
+    random_metrics = [
+        ("cpu_usage", random.random(), time.time()) for _ in range(16_384)
+    ]
     for metric in random_metrics:
         client.add_to_queue(metric)
-    client.send()
+    client.run_until_buffer_empty()
     while True:
         time.sleep(1)
 
@@ -49,7 +51,6 @@ def server_tcp():
     )
     print(server)
     while True:
-        print(f"TCP_buffer_len = {len(buffer)}")
         time.sleep(1)
 
 
@@ -84,7 +85,6 @@ def server_udp():
     )
     print(server)
     while True:
-        print(f"UDP_buffer_len = {len(buffer)}")
         time.sleep(1)
 
 
@@ -113,4 +113,4 @@ if __name__ == "__main__":
     run_server_client(server_udp, client_udp)
 
     # TCP client and server
-    run_server_client(server_tcp, client_tcp)
+    # run_server_client(server_tcp, client_tcp)

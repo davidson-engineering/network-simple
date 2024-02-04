@@ -15,15 +15,17 @@ from typing import Union, List
 from collections import deque
 import threading
 import time
-import bufsock
+
+# import bufsock
+import io
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
 
-MAXIMUM_PACKET_SIZE = 4096
-BUFFER_LENGTH = 8192
+MAXIMUM_PACKET_SIZE = 4_096
+BUFFER_LENGTH = 16_384
 
 
 def is_empty(obj) -> bool:
@@ -44,26 +46,44 @@ def string_to_binary(string) -> bytes:
     return string
 
 
+def convert_bytes_to_human_readable(num: float) -> str:
+    """Convert bytes to a human-readable format."""
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
+        if num < 1024.0:
+            return f"{num:.2f} {unit}"
+        num /= 1024.0
+    return f"{num:.2f} {unit}"
+
+
 class SimpleHandler:
+    def finish(self) -> None:
+        bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_recvd)
+        logger.info(f"Received {bytes_recvd_str} from {self.client_address[0]}")
+
+
+class SimpleHandlerUDP(SimpleHandler, socketserver.DatagramRequestHandler):
     def handle(self) -> None:
+        self.bytes_recvd = 0
         try:
-            data = self.rfile.readline(MAXIMUM_PACKET_SIZE)
-            self.server._input_buffer.append(data)
-            length = len(data)
-            # ignore any blank data
-            if is_empty(data):
-                return
-            logger.info(
-                f"Received {length} bytes of data from {self.client_address[0]}"
-            )
+            while data := self.rfile.readline(MAXIMUM_PACKET_SIZE).decode().strip():
+                self.server._input_buffer.append(data)
+                self.bytes_recvd += len(data)
         except Exception as e:
             logger.error(e)
 
 
-class SimpleHandlerUDP(SimpleHandler, socketserver.DatagramRequestHandler): ...
-
-
-class SimpleHandlerTCP(SimpleHandler, socketserver.StreamRequestHandler): ...
+class SimpleHandlerTCP(SimpleHandler, socketserver.StreamRequestHandler):
+    def handle(self) -> None:
+        self.bytes_recvd = 0
+        try:
+            with io.TextIOWrapper(
+                self.connection.makefile("rwb"), encoding="utf-8", newline="\n"
+            ) as stream:
+                while data := stream.readline(MAXIMUM_PACKET_SIZE).strip():
+                    self.server._input_buffer.append(data)
+                    self.bytes_recvd += len(data)
+        except Exception as e:
+            logger.error(e)
 
 
 class SimpleServer:
@@ -107,7 +127,7 @@ class SimpleServer:
         self.unpacking_thread = unpacking_thread
 
     def fetch_buffer(self) -> List[bytes]:
-        return self._input_buffer.unpack()
+        return self._input_buffer._unpack()
 
     def peek_buffer(self) -> List[bytes]:
         return self._input_buffer.get_copy()
@@ -122,10 +142,10 @@ class SimpleServer:
         while True:
             while len(self._input_buffer) > 0:
                 try:
-                    decoded_data = self._input_buffer.unpack_next()
-                    self._output_buffer.append(decoded_data)
+                    data = self._input_buffer.next_unpacked()
+                    self._output_buffer.append(data)
                 except AttributeError:
-                    self._output_buffer.append(self._input_buffer.pop())
+                    self._output_buffer.append(next(self._input_buffer))
             time.sleep(self.update_interval)
 
     def start(self) -> None:
@@ -191,7 +211,7 @@ class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
         server_logbook.info(
             f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
         )
-        self._socket_buffer = bufsock.bufsock(conn)
+        # self._socket_buffer = bufsock.bufsock(conn)
         return conn, addr
 
 
