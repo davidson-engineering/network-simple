@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import pytest
-from network_simple.client import MetricsClientTCP
+
 import time
 from datetime import datetime, timedelta, timezone
 import logging
