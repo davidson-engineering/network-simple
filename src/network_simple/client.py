@@ -141,7 +141,16 @@ def TCP_client():
     }
 
     client = SimpleClientTCP(**client_config)
-    random_metrics = [("cpu_usage", random.random(), time.time()) for _ in range(4095)]
+    # random_metrics = [("cpu_usage", random.random(), time.time()) for _ in range(4095)]
+    random_metrics = [
+        {
+            "measurement": "cpu_usage",
+            "fields": {"cpu0": random.random(), "cpu1": 1 - random.random()},
+            "tags": {"host": "localhost", "region": "us-west"},
+            "time": time.time(),
+        }
+        for _ in range(1000)
+    ]
 
     # Example: Add metrics to the buffer
     for metric in random_metrics:
