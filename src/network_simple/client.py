@@ -134,7 +134,7 @@ def TCP_client():
     import logging
     import random
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     client_config = {
         "host": "localhost",
         "port": 9000,
@@ -149,7 +149,7 @@ def TCP_client():
             "tags": {"host": "localhost", "region": "us-west"},
             "time": time.time(),
         }
-        for _ in range(1000)
+        for _ in range(5000)
     ]
 
     # Example: Add metrics to the buffer
@@ -165,7 +165,7 @@ def UDP_client():
     import logging
     import random
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     client_config = {
         "host": "localhost",
         "port": 9000,

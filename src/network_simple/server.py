@@ -16,14 +16,28 @@ from collections import deque
 import threading
 import time
 import io
+from dataclasses import dataclass
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
+from app_stats.app_stats import ApplicationStatistics
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
 
 MAXIMUM_PACKET_SIZE = 4_096
 BUFFER_LENGTH = 16_384
+
+
+@dataclass
+class ServerStatistics(ApplicationStatistics):
+    connections_received: int = 0
+    connections_sent: int = 0
+    connections_failed: int = 0
+    connections_buffered: int = 0
+    connections_dropped: int = 0
+    connections_processed: int = 0
+    bytes_received: float = 0
+    bytes_sent: float = 0
 
 
 def is_empty(obj) -> bool:
@@ -55,6 +69,7 @@ def convert_bytes_to_human_readable(num: float) -> str:
 
 class SimpleHandler:
     def finish(self) -> None:
+        self.server.session_stats.increment("bytes_received", self.bytes_recvd)
         bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_recvd)
         logger.info(f"Received {bytes_recvd_str} from {self.client_address[0]}")
 
@@ -103,6 +118,8 @@ class SimpleServer:
         self.host = host
         self.port = port
         self.update_interval = update_interval
+
+        self.session_stats = ServerStatistics()
 
         self._output_buffer = output_buffer
         self._input_buffer = PackagedBuffer(
@@ -209,6 +226,7 @@ class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
         server_logbook.info(
             f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
         )
+        self.session_stats.increment("connections_received")
         # self._socket_buffer = bufsock.bufsock(conn)
         return conn, addr
 
@@ -243,6 +261,7 @@ class SimpleServerUDP(SimpleServer, socketserver.UDPServer):
         server_logbook.info(
             f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
         )
+        self.session_stats.increment("connections_received")
         return (data, self.socket), addr
 
 

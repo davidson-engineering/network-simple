@@ -32,7 +32,12 @@ def client_tcp():
     }
     client = SimpleClientTCP(**client_config)
     random_metrics = [
-        ("cpu_usage", random.random(), time.time()) for _ in range(16_384)
+        dict(
+            measurement="cpu_usage",
+            fields=dict(cpu0=random.random()),
+            time=time.time(),
+        )
+        for _ in range(16_384)
     ]
     for metric in random_metrics:
         client.add_to_queue(metric)
@@ -64,10 +69,17 @@ def client_udp():
 
     client_config = {
         "host": "localhost",
-        "port": 9000,
+        "port": 9001,
     }
     client = SimpleClientUDP(**client_config)
-    random_metrics = [("cpu_usage", random.random(), time.time()) for _ in range(4095)]
+    random_metrics = [
+        dict(
+            measurement="cpu_usage",
+            fields=dict(cpu0=random.random()),
+            time=time.time(),
+        )
+        for _ in range(16_384)
+    ]
     for metric in random_metrics:
         client.add_to_queue(metric)
     client.send()
@@ -91,14 +103,23 @@ def server_udp():
 # Run server and client in separate threads
 
 
-def run_server_client(server, client):
-
+def run_server(server):
     server_thread = threading.Thread(target=server)
     server_thread.start()
-    time.sleep(1)
+    return server_thread
 
+
+def run_client(client):
     client_thread = threading.Thread(target=client)
     client_thread.start()
+    return client_thread
+
+
+def run_server_client(server, client):
+
+    server_thread = run_server(server)
+    time.sleep(0.5)
+    client_thread = run_client(client)
 
     server_thread.join()
     client_thread.join()
@@ -110,7 +131,11 @@ def run_server_client(server, client):
 if __name__ == "__main__":
 
     # UDP client and server
-    run_server_client(server_udp, client_udp)
+    # run_server_client(server_udp, client_udp)
+
+    run_client(client_tcp)
+    while True:
+        time.sleep(1)
 
     # TCP client and server
     # run_server_client(server_tcp, client_tcp)
