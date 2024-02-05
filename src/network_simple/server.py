@@ -19,7 +19,7 @@ import io
 from dataclasses import dataclass
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
-from app_stats.app_stats import ApplicationStatistics
+from app_stats.app_stats import ApplicationStatistics, SessionStatistics
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
@@ -119,7 +119,10 @@ class SimpleServer:
         self.port = port
         self.update_interval = update_interval
 
-        self.session_stats = ServerStatistics()
+        self.session_stats = SessionStatistics(
+            total_stats=ServerStatistics(),
+            period_stats=ServerStatistics(),
+        )
 
         self._output_buffer = output_buffer
         self._input_buffer = PackagedBuffer(
