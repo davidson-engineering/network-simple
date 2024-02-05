@@ -45,7 +45,9 @@ class SimpleClient(ABC):
         self.host = host
         self.port = port
         self.encoding = "utf-8"
-        self._buffer = PackagedBuffer(maxlen=BUFFER_LENGTH, packager=JSONPackager())
+        self._buffer = PackagedBuffer(
+            maxlen=BUFFER_LENGTH, packager=JSONPackager(terminator="\n")
+        )
         self.update_interval = update_interval
         self.run_client_thread = threading.Thread(target=self.run_client, daemon=True)
         if autostart:
@@ -53,6 +55,9 @@ class SimpleClient(ABC):
 
     @abstractmethod
     def send(self) -> None: ...
+
+    @abstractmethod
+    def receive(self) -> None: ...
 
     def finish(self) -> None:
         pass
@@ -110,7 +115,7 @@ class SimpleClientTCP(SimpleClient):
                     s.makefile("rwb"), encoding=self.encoding, newline="\n"
                 ) as stream:
                     while self._buffer.not_empty():
-                        packet = self._buffer.next_packed(terminator="\n")
+                        packet = self._buffer.next_packed()
                         self.bytes_sent += len(packet.strip())
                         logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
                         stream.write(packet)
@@ -118,16 +123,30 @@ class SimpleClientTCP(SimpleClient):
             except Exception as e:
                 logger.error(f"Error in client send: {e}")
 
+    def receive(self):
+        pass
+
 
 class SimpleClientUDP(SimpleClient):
     def send(self) -> None:
         self.bytes_sent = 0
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             while self._buffer.not_empty():
-                packet = self._buffer.next_packed(terminator="\n")
+                packet = self._buffer.next_packed()
                 self.bytes_sent += len(packet.strip())
                 logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
                 s.sendto(packet.encode(self.encoding), (self.host, self.port))
+
+    def receive(self):
+        self.bytes_recvd = 0
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            while data := self.rfile.readline(MAXIMUM_PACKET_SIZE).decode().strip():
+                self.server._input_buffer.append(data)
+                self.bytes_recvd += len(data)
+            packet = self._buffer.next_packed()
+            self.bytes_sent += len(packet.strip())
+            logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
+            s.sendto(packet.encode(self.encoding), (self.host, self.port))
 
 
 def TCP_client():

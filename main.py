@@ -27,8 +27,8 @@ from network_simple.server import SimpleServerTCP
 def client_tcp():
 
     client_config = {
-        "host": "localhost",
-        "port": 9000,
+        "host": "gfyvrdatadash",
+        "port": 50000,
     }
     client = SimpleClientTCP(**client_config)
     random_metrics = [
@@ -42,6 +42,7 @@ def client_tcp():
     for metric in random_metrics:
         client.add_to_queue(metric)
     client.run_until_buffer_empty()
+
     while True:
         time.sleep(1)
 
@@ -68,7 +69,7 @@ from network_simple.server import SimpleServerUDP
 def client_udp():
 
     client_config = {
-        "host": "localhost",
+        "host": "http://gfyvrdatadash",
         "port": 9001,
     }
     client = SimpleClientUDP(**client_config)
