@@ -19,13 +19,17 @@ import io
 from dataclasses import dataclass
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
-from app_stats.app_stats import ApplicationStatistics, SessionStatistics
+from application_metrics import ApplicationStatistics, SessionStatistics
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
 
 MAXIMUM_PACKET_SIZE = 4_096
 BUFFER_LENGTH = 16_384
+
+
+DEFAULT_SERVER_ADDRESS_TCP = ("localhost", 0)
+DEFAULT_SERVER_ADDRESS_UDP = ("localhost", 0)
 
 
 @dataclass
@@ -71,7 +75,9 @@ class SimpleHandler:
     def finish(self) -> None:
         self.server.session_stats.increment("bytes_received", self.bytes_recvd)
         bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_recvd)
-        logger.info(f"Received {bytes_recvd_str} from {self.client_address[0]}")
+        logger.info(
+            f"Received {bytes_recvd_str} from {self.client_address[0]}:{self.client_address[1]}"
+        )
 
 
 class SimpleHandlerUDP(SimpleHandler, socketserver.DatagramRequestHandler):
@@ -109,14 +115,12 @@ class SimpleServer:
         output_buffer: Union[List, deque],
         buffer_length: int = BUFFER_LENGTH,
         autostart: bool = False,
-        host: str = "localhost",
-        port: int = 0,
+        server_address=("localhost", 0),
         update_interval: float = 0.5,
         packager: Packager = None,
     ) -> None:
 
-        self.host = host
-        self.port = port
+        self.server_address = server_address
         self.update_interval = update_interval
 
         self.session_stats = SessionStatistics(
@@ -151,9 +155,7 @@ class SimpleServer:
         return self._input_buffer.get_copy()
 
     def handle_connections(self) -> None:
-        logger.info(
-            f"Starting server on {self.server_address[0]} at port {self.server_address[1]}"
-        )
+        logger.info(f"Starting server {str(self)}")
         self.serve_forever(poll_interval=self.update_interval)
 
     def unpack_input_buffer(self) -> None:
@@ -171,9 +173,7 @@ class SimpleServer:
         self.unpacking_thread.start()
 
     def stop(self) -> None:
-        logger.info(
-            f"Stopping server on {self.server_address[0]} at port {self.server_address[1]}"
-        )
+        logger.info(f"Stopping server {str(self)}")
         logger.info(f"Uptime: {time.monotonic() - SimpleServer._start_time} seconds")
         self.shutdown()
         self.handler_thread.join()
@@ -193,42 +193,38 @@ class SimpleServer:
         return self
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.host}, {self.port})"
+        return f"{self.__class__.__name__}({self.server_address[0]}:{self.server_address[1]})"
 
     def __str__(self):
-        return f"{self.__class__.__name__}({self.host}, {self.port})"
+        return f"{self.__class__.__name__}({self.server_address[0]}:{self.server_address[1]})"
 
 
 class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
     def __init__(
         self,
         output_buffer: Union[List, deque] = None,
-        host: str = "localhost",
-        port: int = 0,
+        server_address=DEFAULT_SERVER_ADDRESS_TCP,
         RequestHandlerClass: StreamRequestHandler = SimpleHandlerTCP,
         autostart: bool = True,
         buffer_length: int = BUFFER_LENGTH,
         **kwargs,
     ) -> None:
         socketserver.TCPServer.__init__(
-            self, (host, port), RequestHandlerClass, **kwargs
+            self, server_address, RequestHandlerClass, **kwargs
         )
         SimpleServer.__init__(
             self,
             output_buffer=output_buffer,
             buffer_length=buffer_length,
             autostart=autostart,
-            host=host,
-            port=port,
+            server_address=server_address,
             **kwargs,
         )
 
     def get_request(self) -> tuple[socket.socket, str]:
         conn, addr = super().get_request()
         logger.info("Connection from %s:%s", *addr)
-        server_logbook.info(
-            f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
-        )
+        server_logbook.info(f"Server {self} connected to {addr[0]}:{addr[1]}")
         self.session_stats.increment("connections_received")
         # self._socket_buffer = bufsock.bufsock(conn)
         return conn, addr
@@ -238,32 +234,28 @@ class SimpleServerUDP(SimpleServer, socketserver.UDPServer):
     def __init__(
         self,
         output_buffer: Union[List, deque] = None,
-        host: str = "localhost",
-        port: int = 0,
+        server_address=DEFAULT_SERVER_ADDRESS_UDP,
         RequestHandlerClass: DatagramRequestHandler = SimpleHandlerUDP,
         autostart: bool = True,
         buffer_length: int = BUFFER_LENGTH,
         **kwargs,
     ) -> None:
         socketserver.UDPServer.__init__(
-            self, (host, port), RequestHandlerClass, **kwargs
+            self, server_address, RequestHandlerClass, **kwargs
         )
         SimpleServer.__init__(
             self,
             output_buffer=output_buffer,
             buffer_length=buffer_length,
             autostart=autostart,
-            host=host,
-            port=port,
+            server_address=server_address,
             **kwargs,
         )
 
     def get_request(self) -> tuple[socket.socket, str]:
         (data, self.socket), addr = super().get_request()
         logger.info("Connection from %s:%s", *addr)
-        server_logbook.info(
-            f"Server at {self.server_address[0]}:{self.server_address[1]} connected to {addr[0]}:{addr[1]}"
-        )
+        server_logbook.info(f"{self} connected to {addr[0]}:{addr[1]}")
         self.session_stats.increment("connections_received")
         return (data, self.socket), addr
 
@@ -272,11 +264,9 @@ def simple_tcp_server() -> None:
     buffer = []
     server = SimpleServerTCP(
         output_buffer=buffer,
-        host="localhost",
-        port=9000,
+        server_address=("localhost", 9000),
         autostart=True,
     )
-    print(server)
 
     while True:
         print(len(buffer))
@@ -287,11 +277,9 @@ def simple_udp_server() -> None:
     buffer = Buffer()
     server = SimpleServerUDP(
         output_buffer=buffer,
-        host="localhost",
-        port=9000,
+        server_address=("localhost", 9000),
         autostart=True,
     )
-    print(server)
 
     while True:
         print(len(buffer))
@@ -299,5 +287,6 @@ def simple_udp_server() -> None:
 
 
 if __name__ == "__main__":
-    simple_tcp_server()
+    # simple_tcp_server()
     # simple_udp_server()
+    pass

@@ -37,15 +37,15 @@ def convert_bytes_to_human_readable(num: float) -> str:
 class SimpleClient(ABC):
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 0,
+        server_address: tuple[str, int] = ("localhost", 0),
         autostart: bool = False,
         update_interval: float = 1,
     ) -> None:
-        self.host = host
-        self.port = port
+        self.server_address = server_address
         self.encoding = "utf-8"
-        self._buffer = PackagedBuffer(maxlen=BUFFER_LENGTH, packager=JSONPackager())
+        self._buffer = PackagedBuffer(
+            maxlen=BUFFER_LENGTH, packager=JSONPackager(terminator="\n")
+        )
         self.update_interval = update_interval
         self.run_client_thread = threading.Thread(target=self.run_client, daemon=True)
         if autostart:
@@ -85,7 +85,7 @@ class SimpleClient(ABC):
 
     def finish(self) -> None:
         bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_sent)
-        logger.info(f"Sent {bytes_recvd_str} to {self.host}")
+        logger.info(f"Sent {bytes_recvd_str} to {str(self)}")
 
     def __enter__(self) -> SimpleClient:
         return self
@@ -97,22 +97,22 @@ class SimpleClient(ABC):
         self.stop()
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.host}, {self.port})"
+        return f"{self.__class__.__name__}({self.server_address[0]}:{self.server_address[1]})"
 
 
 class SimpleClientTCP(SimpleClient):
     def send(self) -> None:
         self.bytes_sent = 0
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port))
+            s.connect(self.server_address)
             try:
                 with io.TextIOWrapper(
                     s.makefile("rwb"), encoding=self.encoding, newline="\n"
                 ) as stream:
                     while self._buffer.not_empty():
-                        packet = self._buffer.next_packed(terminator="\n")
+                        packet = self._buffer.next_packed()
                         self.bytes_sent += len(packet.strip())
-                        logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
+                        logger.debug(f"Sending packet to {self}")
                         stream.write(packet)
                         stream.flush()
             except Exception as e:
@@ -124,10 +124,10 @@ class SimpleClientUDP(SimpleClient):
         self.bytes_sent = 0
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             while self._buffer.not_empty():
-                packet = self._buffer.next_packed(terminator="\n")
+                packet = self._buffer.next_packed()
                 self.bytes_sent += len(packet.strip())
-                logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
-                s.sendto(packet.encode(self.encoding), (self.host, self.port))
+                logger.debug(f"Sending packet to {self}: {packet.strip()}")
+                s.sendto(packet.encode(self.encoding), self.server_address)
 
 
 def TCP_client():

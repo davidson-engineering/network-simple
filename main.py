@@ -26,11 +26,9 @@ from network_simple.server import SimpleServerTCP
 
 def client_tcp():
 
-    client_config = {
-        "host": "localhost",
-        "port": 9000,
-    }
-    client = SimpleClientTCP(**client_config)
+    client = SimpleClientTCP(
+        server_address=("localhost", 9000),
+    )
     random_metrics = [
         dict(
             measurement="cpu_usage",
@@ -50,11 +48,9 @@ def server_tcp():
     buffer = []
     server = SimpleServerTCP(
         output_buffer=buffer,
-        host="localhost",
-        port=9000,
+        server_address=("localhost", 9000),
         autostart=True,
     )
-    print(server)
     while True:
         time.sleep(1)
 
@@ -67,11 +63,9 @@ from network_simple.server import SimpleServerUDP
 
 def client_udp():
 
-    client_config = {
-        "host": "localhost",
-        "port": 9001,
-    }
-    client = SimpleClientUDP(**client_config)
+    client = SimpleClientUDP(
+        server_address=("localhost", 9000),
+    )
     random_metrics = [
         dict(
             measurement="cpu_usage",
@@ -91,8 +85,7 @@ def server_udp():
     buffer = []
     server = SimpleServerUDP(
         output_buffer=buffer,
-        host="localhost",
-        port=9000,
+        server_address=("localhost", 9000),
         autostart=True,
     )
     print(server)
@@ -131,9 +124,10 @@ def run_server_client(server, client):
 if __name__ == "__main__":
 
     # UDP client and server
-    # run_server_client(server_udp, client_udp)
+    run_server_client(server_tcp, client_tcp)
 
-    run_client(client_tcp)
+    # run_client(client_tcp)
+
     while True:
         time.sleep(1)
 
