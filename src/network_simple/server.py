@@ -19,7 +19,7 @@ import io
 from dataclasses import dataclass
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
-from application_metrics import ApplicationStatistics, SessionStatistics
+from application_metrics import ApplicationMetrics, SessionMetrics
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
@@ -33,7 +33,7 @@ DEFAULT_SERVER_ADDRESS_UDP = ("localhost", 0)
 
 
 @dataclass
-class ServerStatistics(ApplicationStatistics):
+class ServerStatistics(ApplicationMetrics):
     connections_received: int = 0
     connections_sent: int = 0
     connections_failed: int = 0
@@ -123,7 +123,7 @@ class SimpleServer:
         self.server_address = server_address
         self.update_interval = update_interval
 
-        self.session_stats = SessionStatistics(
+        self.session_stats = SessionMetrics(
             total_stats=ServerStatistics(),
             period_stats=ServerStatistics(),
         )
