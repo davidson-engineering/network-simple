@@ -25,7 +25,7 @@ classifiers = [
 ]
 
 dependencies = [
-   "buffered @ git+https://github.com/davidson-engineering/buffered.git@v0.0.5",
+   "buffered @ git+https://github.com/davidson-engineering/buffered.git@v1.0.0",
    "application-metrics @ git+https://github.com/generalmattza/application-metrics.git@v0.0.1",
 ]
 

@@ -61,7 +61,7 @@ class SimpleClient(ABC):
         pass
 
     def add_to_queue(self, data: Any) -> None:
-        self._buffer.add(data)
+        self._buffer.put(data)
 
     def run_client(self) -> None:
         while True:
