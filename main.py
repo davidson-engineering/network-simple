@@ -18,19 +18,17 @@ import time
 
 logging.basicConfig(level=logging.INFO)
 
-from network_simple.client import SimpleClientTCP
-from network_simple.server import SimpleServerTCP
+from network_simple import SimpleClientTCP, SimpleServerTCP
+from buffered.buffer import Buffer
 
 # Example server-client for networking with TCP protocol
 
 
 def client_tcp():
 
-    client_config = {
-        "host": "gfyvrdatadash",
-        "port": 50000,
-    }
-    client = SimpleClientTCP(**client_config)
+    client = SimpleClientTCP(
+        server_address=("localhost", 9000),
+    )
     random_metrics = [
         dict(
             measurement="cpu_usage",
@@ -48,31 +46,26 @@ def client_tcp():
 
 
 def server_tcp():
-    buffer = []
+    buffer = Buffer()
     server = SimpleServerTCP(
         output_buffer=buffer,
-        host="localhost",
-        port=9000,
+        server_address=("localhost", 9000),
         autostart=True,
     )
-    print(server)
     while True:
         time.sleep(1)
 
 
 # Example server-client for networking with UDP protocol
 
-from network_simple.client import SimpleClientUDP
-from network_simple.server import SimpleServerUDP
+from network_simple import SimpleClientUDP, SimpleServerUDP
 
 
 def client_udp():
 
-    client_config = {
-        "host": "http://gfyvrdatadash",
-        "port": 9001,
-    }
-    client = SimpleClientUDP(**client_config)
+    client = SimpleClientUDP(
+        server_address=("localhost", 9000),
+    )
     random_metrics = [
         dict(
             measurement="cpu_usage",
@@ -89,11 +82,10 @@ def client_udp():
 
 
 def server_udp():
-    buffer = []
+    buffer = Buffer()
     server = SimpleServerUDP(
         output_buffer=buffer,
-        host="localhost",
-        port=9000,
+        server_address=("localhost", 9000),
         autostart=True,
     )
     print(server)
@@ -132,9 +124,10 @@ def run_server_client(server, client):
 if __name__ == "__main__":
 
     # UDP client and server
-    # run_server_client(server_udp, client_udp)
+    run_server_client(server_tcp, client_tcp)
 
-    run_client(client_tcp)
+    # run_client(client_tcp)
+
     while True:
         time.sleep(1)
 
