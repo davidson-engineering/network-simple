@@ -19,7 +19,6 @@ import io
 from dataclasses import dataclass
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
-from application_metrics import ApplicationMetrics, SessionMetrics
 
 logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
@@ -30,19 +29,6 @@ BUFFER_LENGTH = 16_384
 
 DEFAULT_SERVER_ADDRESS_TCP = ("localhost", 0)
 DEFAULT_SERVER_ADDRESS_UDP = ("localhost", 0)
-
-
-@dataclass
-class ServerStatistics(ApplicationMetrics):
-    connections_received: int = 0
-    connections_sent: int = 0
-    connections_failed: int = 0
-    connections_buffered: int = 0
-    connections_dropped: int = 0
-    connections_processed: int = 0
-    bytes_received: float = 0
-    bytes_sent: float = 0
-
 
 def is_empty(obj) -> bool:
     if isinstance(obj, str):
@@ -225,8 +211,6 @@ class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
         conn, addr = super().get_request()
         logger.info("Connection from %s:%s", *addr)
         server_logbook.info(f"Server {self} connected to {addr[0]}:{addr[1]}")
-        self.session_stats.increment("connections_received")
-        # self._socket_buffer = bufsock.bufsock(conn)
         return conn, addr
 
 
@@ -256,7 +240,6 @@ class SimpleServerUDP(SimpleServer, socketserver.UDPServer):
         (data, self.socket), addr = super().get_request()
         logger.info("Connection from %s:%s", *addr)
         server_logbook.info(f"{self} connected to {addr[0]}:{addr[1]}")
-        self.session_stats.increment("connections_received")
         return (data, self.socket), addr
 
 
