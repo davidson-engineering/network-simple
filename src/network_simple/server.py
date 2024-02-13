@@ -59,7 +59,6 @@ def convert_bytes_to_human_readable(num: float) -> str:
 
 class SimpleHandler:
     def finish(self) -> None:
-        self.server.session_stats.increment("bytes_received", self.bytes_recvd)
         bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_recvd)
         logger.info(
             f"Received {bytes_recvd_str} from {self.client_address[0]}:{self.client_address[1]}"
@@ -108,11 +107,6 @@ class SimpleServer:
 
         self.server_address = server_address
         self.update_interval = update_interval
-
-        self.session_stats = SessionMetrics(
-            total_stats=ServerStatistics(),
-            period_stats=ServerStatistics(),
-        )
 
         self._output_buffer = output_buffer
         self._input_buffer = PackagedBuffer(
