@@ -85,7 +85,7 @@ class SimpleHandlerUDP(SimpleHandler, socketserver.DatagramRequestHandler):
         self.bytes_recvd = 0
         try:
             while data := self.rfile.readline(MAXIMUM_PACKET_SIZE).decode().strip():
-                self.server._input_buffer.append(data)
+                self.server._input_buffer.put(data)
                 self.bytes_recvd += len(data)
         except Exception as e:
             logger.error(e)
@@ -99,7 +99,7 @@ class SimpleHandlerTCP(SimpleHandler, socketserver.StreamRequestHandler):
                 self.connection.makefile("rwb"), encoding="utf-8", newline="\n"
             ) as stream:
                 while data := stream.readline(MAXIMUM_PACKET_SIZE).strip():
-                    self.server._input_buffer.append(data)
+                    self.server._input_buffer.put(data)
                     self.bytes_recvd += len(data)
         except Exception as e:
             logger.error(e)
@@ -163,9 +163,9 @@ class SimpleServer:
             while len(self._input_buffer) > 0:
                 try:
                     data = self._input_buffer.next_unpacked()
-                    self._output_buffer.append(data)
+                    self._output_buffer.put(data)
                 except AttributeError:
-                    self._output_buffer.append(next(self._input_buffer))
+                    self._output_buffer.put(next(self._input_buffer))
             time.sleep(self.update_interval)
 
     def start(self) -> None:

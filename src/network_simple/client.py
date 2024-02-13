@@ -54,11 +54,14 @@ class SimpleClient(ABC):
     @abstractmethod
     def send(self) -> None: ...
 
+    @abstractmethod
+    def receive(self) -> None: ...
+
     def finish(self) -> None:
         pass
 
     def add_to_queue(self, data: Any) -> None:
-        self._buffer.add(data)
+        self._buffer.put(data)
 
     def run_client(self) -> None:
         while True:
@@ -118,6 +121,9 @@ class SimpleClientTCP(SimpleClient):
             except Exception as e:
                 logger.error(f"Error in client send: {e}")
 
+    def receive(self):
+        pass
+
 
 class SimpleClientUDP(SimpleClient):
     def send(self) -> None:
@@ -128,6 +134,17 @@ class SimpleClientUDP(SimpleClient):
                 self.bytes_sent += len(packet.strip())
                 logger.debug(f"Sending packet to {self}: {packet.strip()}")
                 s.sendto(packet.encode(self.encoding), self.server_address)
+
+    def receive(self):
+        self.bytes_recvd = 0
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            while data := self.rfile.readline(MAXIMUM_PACKET_SIZE).decode().strip():
+                self.server._input_buffer.append(data)
+                self.bytes_recvd += len(data)
+            packet = self._buffer.next_packed()
+            self.bytes_sent += len(packet.strip())
+            logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
+            s.sendto(packet.encode(self.encoding), (self.host, self.port))
 
 
 def TCP_client():

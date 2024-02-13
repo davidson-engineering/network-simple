@@ -18,8 +18,8 @@ import time
 
 logging.basicConfig(level=logging.INFO)
 
-from network_simple.client import SimpleClientTCP
-from network_simple.server import SimpleServerTCP
+from network_simple import SimpleClientTCP, SimpleServerTCP
+from buffered.buffer import Buffer
 
 # Example server-client for networking with TCP protocol
 
@@ -40,12 +40,13 @@ def client_tcp():
     for metric in random_metrics:
         client.add_to_queue(metric)
     client.run_until_buffer_empty()
+
     while True:
         time.sleep(1)
 
 
 def server_tcp():
-    buffer = []
+    buffer = Buffer()
     server = SimpleServerTCP(
         output_buffer=buffer,
         server_address=("localhost", 9000),
@@ -57,8 +58,7 @@ def server_tcp():
 
 # Example server-client for networking with UDP protocol
 
-from network_simple.client import SimpleClientUDP
-from network_simple.server import SimpleServerUDP
+from network_simple import SimpleClientUDP, SimpleServerUDP
 
 
 def client_udp():
@@ -82,7 +82,7 @@ def client_udp():
 
 
 def server_udp():
-    buffer = []
+    buffer = Buffer()
     server = SimpleServerUDP(
         output_buffer=buffer,
         server_address=("localhost", 9000),
