@@ -34,6 +34,14 @@ def convert_bytes_to_human_readable(num: float) -> str:
     return f"{num:.2f} {unit}"
 
 
+def shorten_data(data: str, max_length: int = 75) -> str:
+    """Shorten data to a maximum length."""
+    if not isinstance(data, str):
+        data = str(data)
+    data = data.strip()
+    return data[:max_length] + "..." if len(data) > max_length else data
+
+
 class SimpleClient(ABC):
     def __init__(
         self,
@@ -42,8 +50,12 @@ class SimpleClient(ABC):
         update_interval: float = 1,
     ) -> None:
         self.server_address = server_address
+        self.host = server_address[0]
         self.encoding = "utf-8"
-        self._buffer = PackagedBuffer(
+        self._output_buffer = PackagedBuffer(
+            maxlen=BUFFER_LENGTH, packager=JSONPackager(terminator="\n")
+        )
+        self._input_buffer = PackagedBuffer(
             maxlen=BUFFER_LENGTH, packager=JSONPackager(terminator="\n")
         )
         self.update_interval = update_interval
@@ -61,7 +73,11 @@ class SimpleClient(ABC):
         pass
 
     def add_to_queue(self, data: Any) -> None:
-        self._buffer.put(data)
+        if isinstance(data, (list, tuple)):
+            for el in data:
+                self._output_buffer.put(el)
+        else:
+            self._output_buffer.put(data)
 
     def run_client(self) -> None:
         while True:
@@ -78,10 +94,11 @@ class SimpleClient(ABC):
         logger.debug("Stopped client thread")
 
     def run_until_buffer_empty(self) -> None:
-        while self._buffer.not_empty():
+        while self._output_buffer.not_empty():
             self.send()
             self.finish()
             logger.info("Waiting for buffer to empty")
+            # Courtesy wait
             time.sleep(self.update_interval)
         else:
             logger.info("Buffer empty")
@@ -99,8 +116,12 @@ class SimpleClient(ABC):
     def __del__(self):
         self.stop()
 
+    @property
+    def server_address_str(self) -> str:
+        return f"{self.server_address[0]}:{self.server_address[1]}"
+
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.server_address[0]}:{self.server_address[1]})"
+        return f"{self.__class__.__name__}({self.server_address_str})"
 
 
 class SimpleClientTCP(SimpleClient):
@@ -112,17 +133,40 @@ class SimpleClientTCP(SimpleClient):
                 with io.TextIOWrapper(
                     s.makefile("rwb"), encoding=self.encoding, newline="\n"
                 ) as stream:
-                    while self._buffer.not_empty():
-                        packet = self._buffer.next_packed()
-                        self.bytes_sent += len(packet.strip())
-                        logger.debug(f"Sending packet to {self}")
-                        stream.write(packet)
+                    while self._output_buffer.not_empty():
+                        data = self._output_buffer.next_packed()
+                        self.bytes_sent += len(data.strip())
+                        logger.debug(
+                            f"Sent to server@{self.server_address_str}: {shorten_data(data)}"
+                        )
+                        stream.write(data)
                         stream.flush()
             except Exception as e:
                 logger.error(f"Error in client send: {e}")
 
     def receive(self):
-        pass
+        self.bytes_received = 0
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(self.client_address)
+            s.listen()
+            logger.debug(f"Waiting for connection on {self}")
+            connection, client_address = s.accept()
+            with io.TextIOWrapper(
+                connection.makefile("rwb"), encoding=self.encoding, newline="\n"
+            ) as stream:
+                try:
+                    while True:
+                        data = stream.readline()
+                        self._input_buffer.put(data)
+                        if not data:
+                            break  # No more data, connection closed
+                        self.bytes_received += len(data.strip())
+                        logger.debug(
+                            f"Received from server@{self.server_address_str}: {shorten_data(data)}"
+                        )
+                        # Process the received data as needed
+                except Exception as e:
+                    logger.error(f"Error in client receive: {e}")
 
 
 class SimpleClientUDP(SimpleClient):
@@ -130,10 +174,10 @@ class SimpleClientUDP(SimpleClient):
         self.bytes_sent = 0
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             while self._buffer.not_empty():
-                packet = self._buffer.next_packed()
-                self.bytes_sent += len(packet.strip())
-                logger.debug(f"Sending packet to {self}: {packet.strip()}")
-                s.sendto(packet.encode(self.encoding), self.server_address)
+                data = self._input_buffer.next_packed()
+                self.bytes_sent += len(data.strip())
+                logger.debug(f"Sent to {self.server_address_str}: {shorten_data(data)}")
+                s.sendto(data.encode(self.encoding), self.server_address)
 
     def receive(self):
         self.bytes_recvd = 0
@@ -143,22 +187,19 @@ class SimpleClientUDP(SimpleClient):
                 self.bytes_recvd += len(data)
             packet = self._buffer.next_packed()
             self.bytes_sent += len(packet.strip())
-            logger.debug(f"Sending packet to {self.host}: {packet.strip()}")
+            logger.debug(f"Received from {self.host}: {shorten_data(data)}")
             s.sendto(packet.encode(self.encoding), (self.host, self.port))
 
 
-def TCP_client():
+def test_tcp_client():
     import logging
     import random
 
     logging.basicConfig(level=logging.INFO)
-    client_config = {
-        "host": "localhost",
-        "port": 9000,
-    }
+    server_address = ("localhost", 9000)
 
-    client = SimpleClientTCP(**client_config)
-    # random_metrics = [("cpu_usage", random.random(), time.time()) for _ in range(4095)]
+    client = SimpleClientTCP(server_address)
+
     random_metrics = [
         {
             "measurement": "cpu_usage",
@@ -170,36 +211,29 @@ def TCP_client():
     ]
 
     # Example: Add metrics to the buffer
-    for metric in random_metrics:
-        client.add_to_queue(metric)
+    client.add_to_queue(random_metrics)
     # Example: Send the buffer to the server
     client.send()
-    while True:
-        time.sleep(1)
+    client.run_until_buffer_empty()
 
 
-def UDP_client():
+def test_udp_client():
     import logging
     import random
 
     logging.basicConfig(level=logging.INFO)
-    client_config = {
-        "host": "localhost",
-        "port": 9000,
-    }
+    server_address = ("localhost", 9000)
 
-    client = SimpleClientUDP(**client_config)
+    client = SimpleClientUDP(server_address)
     random_metrics = [("cpu_usage", random.random(), time.time()) for _ in range(4095)]
 
     # Example: Add metrics to the buffer
-    for metric in random_metrics:
-        client.add_to_queue(metric)
+    client.add_to_queue(random_metrics)
     # Example: Send the buffer to the server
     client.send()
-    while True:
-        time.sleep(1)
+    client.run_until_buffer_empty()
 
 
 if __name__ == "__main__":
-    # UDP_client()
-    TCP_client()
+    # test_udp_client()
+    test_tcp_client()

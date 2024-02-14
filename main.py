@@ -12,22 +12,22 @@
 import time
 import threading
 import logging
-import random
-import time
 
 
-logging.basicConfig(level=logging.INFO)
-
-from network_simple import SimpleClientTCP, SimpleServerTCP
-from buffered.buffer import Buffer
+logging.basicConfig(level=logging.DEBUG)
 
 # Example server-client for networking with TCP protocol
 
 
 def client_tcp():
 
+    import random
+    import time
+
+    from network_simple import SimpleClientTCP
+
     client = SimpleClientTCP(
-        server_address=("localhost", 9000),
+        server_address=("localhost", 50000),
     )
     random_metrics = [
         dict(
@@ -46,22 +46,31 @@ def client_tcp():
 
 
 def server_tcp():
+
+    import time
+
+    from network_simple import SimpleServerTCP
+    from buffered.buffer import Buffer
+
     buffer = Buffer()
+
     server = SimpleServerTCP(
         output_buffer=buffer,
-        server_address=("localhost", 9000),
+        server_address=("localhost", 50000),
         autostart=True,
     )
+    # Wait here, server will run in the background
     while True:
         time.sleep(1)
 
 
 # Example server-client for networking with UDP protocol
-
-from network_simple import SimpleClientUDP, SimpleServerUDP
-
-
 def client_udp():
+
+    import random
+    import time
+
+    from network_simple import SimpleClientUDP
 
     client = SimpleClientUDP(
         server_address=("localhost", 9000),
@@ -82,13 +91,19 @@ def client_udp():
 
 
 def server_udp():
+
+    import time
+
+    from network_simple import SimpleServerUDP
+    from buffered.buffer import Buffer
+
     buffer = Buffer()
     server = SimpleServerUDP(
         output_buffer=buffer,
         server_address=("localhost", 9000),
         autostart=True,
     )
-    print(server)
+    # Wait here, server will run in the background
     while True:
         time.sleep(1)
 
@@ -124,9 +139,9 @@ def run_server_client(server, client):
 if __name__ == "__main__":
 
     # UDP client and server
-    run_server_client(server_tcp, client_tcp)
+    # run_server_client(server_tcp, client_tcp)
 
-    # run_client(client_tcp)
+    run_client(client_tcp)
 
     while True:
         time.sleep(1)
