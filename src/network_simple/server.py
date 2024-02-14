@@ -154,7 +154,7 @@ class SimpleServer:
         return self._input_buffer.get_copy()
 
     def handle_connections(self) -> None:
-        logger.info(f"Starting server {str(self)}")
+        logger.info(f"Starting server@{self.server_address_str}")
         self.serve_forever(poll_interval=self.update_interval)
 
     def unpack_input_buffer(self) -> None:
@@ -180,11 +180,15 @@ class SimpleServer:
         self.unpacking_thread.start()
 
     def stop(self) -> None:
-        logger.info(f"Stopping server {str(self)}")
+        logger.info(f"Stopping server@{self.server_address_str}")
         logger.info(f"Uptime: {time.monotonic() - SimpleServer._start_time} seconds")
         self.shutdown()
         self.handler_thread.join()
         self.unpacking_thread.join()
+
+    @property
+    def server_address_str(self) -> str:
+        return f"{self.server_address[0]}:{self.server_address[1]}"
 
     def __del__(self):
         self.stop()
@@ -200,10 +204,10 @@ class SimpleServer:
         return self
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.server_address[0]}:{self.server_address[1]})"
+        return f"{self.__class__.__name__}({self.server_address_str})"
 
     def __str__(self):
-        return f"{self.__class__.__name__}({self.server_address[0]}:{self.server_address[1]})"
+        return f"{self.__class__.__name__}({self.server_address_str})"
 
 
 class SimpleServerTCP(SimpleServer, socketserver.TCPServer):
