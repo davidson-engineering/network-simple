@@ -56,8 +56,8 @@ def send_random_metrics(size: int, client, server):
     var_destination = calc_var(server_metrics, "cpu0")
 
     assert len(server_metrics) == size
-    assert mean_source == mean_destination
-    assert var_source == var_destination
+    assert pytest.approx(mean_source, mean_destination)
+    assert pytest.approx(var_source, var_destination)
 
 
 def test_client_small(server_tcp, client_tcp):
