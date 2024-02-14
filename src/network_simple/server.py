@@ -159,7 +159,7 @@ class SimpleServer:
 
     def unpack_input_buffer(self) -> None:
         while True:
-            while len(self._input_buffer) > 0:
+            while self._input_buffer.not_empty():
                 try:
                     data = self._input_buffer.next_unpacked()
                     self._output_buffer.put(data)

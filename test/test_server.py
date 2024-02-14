@@ -49,7 +49,7 @@ def send_random_metrics(size: int, client, server):
     client.add_to_queue(random_metrics)
     client.run_until_buffer_empty()
     # Coutesy wait for the server to process the data
-
+    time.sleep(3)
     server_metrics = server.dump_when_unpacked()
 
     mean_destination = calc_mean(server_metrics, "cpu0")
