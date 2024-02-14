@@ -58,12 +58,32 @@ def convert_bytes_to_human_readable(num: float) -> str:
     return f"{num:.2f} {unit}"
 
 
+def shorten_data(data: str, max_length: int = 75) -> str:
+    """Shorten data to a maximum length."""
+    if not isinstance(data, str):
+        data = str(data)
+    data = data.strip()
+    return data[:max_length] + "..." if len(data) > max_length else data
+
+
 class SimpleHandler:
     def finish(self) -> None:
         bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_recvd)
         logger.info(
-            f"Received {bytes_recvd_str} from {self.client_address[0]}:{self.client_address[1]}"
+            f"Received {bytes_recvd_str} from client@{self._client_address_str}"
         )
+
+    def _load_data(self, data):
+        self.server._input_buffer.put(data)
+        bytes_recvd += len(data)
+        self.bytes_recvd += bytes_recvd
+        logger.debug(
+            f"Received {bytes_recvd} from client@{self.client_address[0]}: {shorten_data(data)}"
+        )
+
+    @property
+    def _client_address_str(self):
+        return f"{self.client_address[0]}:{self.client_address[1]}"
 
 
 class SimpleHandlerUDP(SimpleHandler, socketserver.DatagramRequestHandler):
@@ -71,8 +91,7 @@ class SimpleHandlerUDP(SimpleHandler, socketserver.DatagramRequestHandler):
         self.bytes_recvd = 0
         try:
             while data := self.rfile.readline(MAXIMUM_PACKET_SIZE).decode().strip():
-                self.server._input_buffer.put(data)
-                self.bytes_recvd += len(data)
+                self._load_data(data)
         except Exception as e:
             logger.error(e)
 
@@ -85,8 +104,8 @@ class SimpleHandlerTCP(SimpleHandler, socketserver.StreamRequestHandler):
                 self.connection.makefile("rwb"), encoding="utf-8", newline="\n"
             ) as stream:
                 while data := stream.readline(MAXIMUM_PACKET_SIZE).strip():
-                    self.server._input_buffer.put(data)
-                    self.bytes_recvd += len(data)
+                    self._load_data(data)
+
         except Exception as e:
             logger.error(e)
 
