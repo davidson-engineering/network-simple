@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 MAXIMUM_PACKET_SIZE = 4_096
-BUFFER_LENGTH = 16_384
+BUFFER_LENGTH = 65_536
 
 
 def convert_bytes_to_human_readable(num: float) -> str:
@@ -46,7 +46,7 @@ class SimpleClient(ABC):
     def __init__(
         self,
         server_address: tuple[str, int] = ("localhost", 0),
-        autostart: bool = False,
+        autostart: bool = True,
         update_interval: float = 1,
     ) -> None:
         self.server_address = server_address
@@ -173,7 +173,7 @@ class SimpleClientUDP(SimpleClient):
     def send(self) -> None:
         self.bytes_sent = 0
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            while self._buffer.not_empty():
+            while self._input_buffer.not_empty():
                 data = self._input_buffer.next_packed()
                 self.bytes_sent += len(data.strip())
                 logger.debug(f"Sent to {self.server_address_str}: {shorten_data(data)}")

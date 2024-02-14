@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 server_logbook = logging.getLogger("server_conn")
 
 MAXIMUM_PACKET_SIZE = 4_096
-BUFFER_LENGTH = 16_384
+BUFFER_LENGTH = 65_536
 
 
 DEFAULT_SERVER_ADDRESS_TCP = ("localhost", 0)
 DEFAULT_SERVER_ADDRESS_UDP = ("localhost", 0)
+
 
 def is_empty(obj) -> bool:
     if isinstance(obj, str):
@@ -99,7 +100,7 @@ class SimpleServer:
         self,
         output_buffer: Union[List, deque],
         buffer_length: int = BUFFER_LENGTH,
-        autostart: bool = False,
+        autostart: bool = True,
         server_address=("localhost", 0),
         update_interval: float = 0.5,
         packager: Packager = None,
@@ -147,6 +148,14 @@ class SimpleServer:
                 except AttributeError:
                     self._output_buffer.put(next(self._input_buffer))
             time.sleep(self.update_interval)
+
+    def wait_until_buffer_empty(self) -> None:
+        while self._input_buffer.not_empty():
+            time.sleep(self.update_interval)
+
+    def dump_when_unpacked(self) -> List:
+        self.wait_until_buffer_empty()
+        return self._output_buffer.dump()
 
     def start(self) -> None:
         self.handler_thread.start()
