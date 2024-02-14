@@ -81,7 +81,8 @@ class SimpleClient(ABC):
 
     def run_client(self) -> None:
         while True:
-            self.send()
+            if self._output_buffer.not_empty():
+                self.send()
             time.sleep(self.update_interval)
 
     def start(self) -> SimpleClient:
