@@ -16,7 +16,6 @@ from collections import deque
 import threading
 import time
 import io
-from dataclasses import dataclass
 
 from buffered.buffer import Buffer, PackagedBuffer, JSONPackager, Packager
 
