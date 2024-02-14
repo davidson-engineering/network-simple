@@ -74,7 +74,7 @@ class SimpleHandler:
 
     def _load_data(self, data):
         self.server._input_buffer.put(data)
-        bytes_recvd += len(data)
+        bytes_recvd = len(data)
         self.bytes_recvd += bytes_recvd
         logger.debug(
             f"Received {bytes_recvd} from client@{self.client_address[0]}: {shorten_data(data)}"
