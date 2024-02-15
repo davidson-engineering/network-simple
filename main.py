@@ -14,7 +14,7 @@ import threading
 import logging
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 # Example server-client for networking with TCP protocol
 
@@ -27,7 +27,7 @@ def client_tcp():
     from network_simple import SimpleClientTCP
 
     client = SimpleClientTCP(
-        server_address=("localhost", 50000),
+        server_address=("gfyvrdatadash", 50000),
     )
     random_metrics = [
         dict(
@@ -35,10 +35,9 @@ def client_tcp():
             fields=dict(cpu0=random.random()),
             time=time.time(),
         )
-        for _ in range(16_384)
+        for _ in range(65_384)
     ]
-    for metric in random_metrics:
-        client.add_to_queue(metric)
+    client.add_to_queue(random_metrics)
     client.run_until_buffer_empty()
 
     while True:
@@ -140,8 +139,8 @@ if __name__ == "__main__":
 
     # UDP client and server
     # run_server_client(server_tcp, client_tcp)
-
-    run_client(client_tcp)
+    client_tcp()
+    # run_client(client_tcp)
 
     while True:
         time.sleep(1)

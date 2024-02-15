@@ -81,7 +81,8 @@ class SimpleClient(ABC):
 
     def run_client(self) -> None:
         while True:
-            self.send()
+            if self._output_buffer.not_empty():
+                self.send()
             time.sleep(self.update_interval)
 
     def start(self) -> SimpleClient:
@@ -105,7 +106,11 @@ class SimpleClient(ABC):
 
     def finish(self) -> None:
         bytes_recvd_str = convert_bytes_to_human_readable(self.bytes_sent)
-        logger.info(f"Sent {bytes_recvd_str} to {str(self)}")
+        logger.info(f"Sent {bytes_recvd_str} to server@{self.server_address_str}")
+
+    @property
+    def server_address_str(self) -> str:
+        return f"{self.server_address[0]}:{self.server_address[1]}"
 
     def __enter__(self) -> SimpleClient:
         return self
@@ -115,10 +120,6 @@ class SimpleClient(ABC):
 
     def __del__(self):
         self.stop()
-
-    @property
-    def server_address_str(self) -> str:
-        return f"{self.server_address[0]}:{self.server_address[1]}"
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.server_address_str})"
