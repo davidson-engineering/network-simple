@@ -25,7 +25,7 @@ classifiers = [
 ]
 
 dependencies = [
-   "buffered @ git+https://github.com/davidson-engineering/buffered.git@v1.0.0",
+   "buffered @ git+https://github.com/davidson-engineering/buffered.git@v1.0.1",
 ]
 
 # If a module, then use fetch version from src/module_name/__init__.py
